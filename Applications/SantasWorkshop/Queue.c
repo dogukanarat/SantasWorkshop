@@ -106,6 +106,9 @@ Task queueDequeue(Queue *self)
         return task;
     }
 
+    // lock mutex
+    while( pthread_mutex_lock(&self->mutex) != 0);
+
     // the queue is empty
     if (self->count == 0) 
     {
@@ -113,9 +116,6 @@ Task queueDequeue(Queue *self)
         task.type = -1;
         return task;
     }
-
-    // lock mutex
-    while( pthread_mutex_lock(&self->mutex) != 0);
 
     // get the item from the head of the queue
     item = self->head;
@@ -141,18 +141,17 @@ Task queueDequeue(Queue *self)
 
 int queueIsEmpty(Queue* self) 
 {
-    int count = 0;
-    while( pthread_mutex_lock(&self->mutex) != 0);
-    count = self->count;
-    pthread_mutex_unlock(&self->mutex);
-    return count == 0;
+    return queueCount(self) == 0;
 }
 
 int queueCount(Queue* self)
 {
-    return self->count;
+    int count = 0;
+    while( pthread_mutex_lock(&self->mutex) != 0);
+    count = self->count;
+    pthread_mutex_unlock(&self->mutex);
+    return count;
 }
-
 
 Task* queueHead(Queue* self)
 {

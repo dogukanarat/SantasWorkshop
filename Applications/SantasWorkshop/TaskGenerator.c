@@ -38,7 +38,7 @@ Task generateTask()
     task.type = lutTaskIdProb[rand() % LUT_SIZE];
     task.id = taskId++;
 
-    task.type = TASK_TYPE_1;
+    task.type = task.type % TASK_TYPE_3;
 
     if(task.type == TASK_TYPE_1)
     {

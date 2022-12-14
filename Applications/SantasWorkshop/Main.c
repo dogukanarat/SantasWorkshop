@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define TABLE_VIEW 1
+
 // simulation time
 static int s_simulationTime = 120;
 
@@ -27,23 +29,27 @@ static Queue *s_assemblyQaQueue;
 
 void printTableHeader()
 {
-    // print(
-    //     "Request\t\t Painting\t Assembly\t Packaging\t Delivery\t PaintingQa\t AssemblyQa\n"
-    // );
+#if TABLE_VIEW
+    print(
+        "Request\t\t Painting\t Assembly\t Packaging\t Delivery\t PaintingQa\t AssemblyQa\n"
+    );
+#endif
 }
 
 void printTable()
 {
-    // print(
-    //     "%d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\n",
-    //     queueCount(s_requestQueue),
-    //     queueCount(s_paintingQueue),
-    //     queueCount(s_assemblyQueue),
-    //     queueCount(s_packagingQueue),
-    //     queueCount(s_deliveryQueue),
-    //     queueCount(s_paintingQaQueue),
-    //     queueCount(s_assemblyQaQueue)
-    // );
+#if TABLE_VIEW
+    print(
+        "%d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\n",
+        queueCount(s_requestQueue),
+        queueCount(s_paintingQueue),
+        queueCount(s_assemblyQueue),
+        queueCount(s_packagingQueue),
+        queueCount(s_deliveryQueue),
+        queueCount(s_paintingQaQueue),
+        queueCount(s_assemblyQaQueue)
+    );
+#endif
 }
 
 void workPaint() { pthread_sleep(3); }
@@ -68,7 +74,21 @@ void *threadElfA(void *arg)
 
                 queueEnqueue(s_deliveryQueue, task);
 
-                info("Task %d: Packaging -> Delivery\n", task.id);
+                info("Task %d: Packaging -> Delivery (Elf A)\n", task.id);
+            }
+        }
+
+        if(queueIsEmpty(s_paintingQueue) == FALSE)
+        {
+            Task task = queueDequeue(s_paintingQueue);
+            
+            if(task.id != -1)
+            {
+                workPaint();
+
+                queueEnqueue(s_packagingQueue, task);
+
+                info("Task %d: Painting -> Packing (Elf A)\n", task.id);
             }
         }
     }
@@ -82,19 +102,33 @@ void *threadElfB(void *arg)
 
     while (TRUE)
     {
-        // if(queueIsEmpty(s_packagingQueue) == FALSE)
-        // {
-        //     Task task = queueDequeue(s_packagingQueue);
+        if(queueIsEmpty(s_packagingQueue) == FALSE)
+        {
+            Task task = queueDequeue(s_packagingQueue);
             
-        //     if(task.id != -1)
-        //     {
-        //         workPack();
+            if(task.id != -1)
+            {
+                workPack();
 
-        //         queueEnqueue(s_deliveryQueue, task);
+                queueEnqueue(s_deliveryQueue, task);
 
-        //         info("Task %d: Packaging -> Delivery\n", task.id);
-        //     }
-        // }
+                info("Task %d: Packaging -> Delivery (Elf B)\n", task.id);
+            }
+        }
+
+        if(queueIsEmpty(s_assemblyQueue) == FALSE)
+        {
+            Task task = queueDequeue(s_assemblyQueue);
+            
+            if(task.id != -1)
+            {
+                workAssembly();
+
+                queueEnqueue(s_packagingQueue, task);
+
+                info("Task %d: Assembly -> Packing (Elf B)\n", task.id);
+            }
+        }
     }
 
     return NULL;
@@ -106,7 +140,7 @@ void *threadSanta(void *arg)
 
     while (TRUE)
     {
-        pthread_sleep(1);
+        // pthread_sleep(1);
     }
 
     return NULL;
@@ -127,8 +161,6 @@ void *threadManager(void *arg)
                 queueEnqueue(s_packagingQueue, task);
 
                 info("Task %d: Request -> Packaging\n", task.id);
-
-                continue;
             }
 
             if(task.type == TASK_TYPE_2)
@@ -136,8 +168,6 @@ void *threadManager(void *arg)
                 queueEnqueue(s_paintingQueue, task);
                 
                 info("Task %d: Request -> Painting\n", task.id);
-
-                continue;
             }
 
             if(task.type == TASK_TYPE_3)
@@ -145,8 +175,6 @@ void *threadManager(void *arg)
                 queueEnqueue(s_assemblyQueue, task);
 
                 info("Task %d: Request -> Assembly\n", task.id);
-
-                continue;
             }
 
             if(task.type == TASK_TYPE_4)
@@ -154,8 +182,6 @@ void *threadManager(void *arg)
                 queueEnqueue(s_paintingQaQueue, task);
 
                 info("Task %d: Request -> PaintingQa\n", task.id);
-
-                continue;
             }
 
             if(task.type == TASK_TYPE_5)
@@ -163,9 +189,9 @@ void *threadManager(void *arg)
                 queueEnqueue(s_assemblyQaQueue, task);
 
                 info("Task %d: Request -> AssemblyQa\n", task.id);
-
-                continue;
             }
+
+            printTable();
         }
     }
 
@@ -183,8 +209,6 @@ void *threadCustomer(void *arg)
         queueEnqueue(s_requestQueue, generatedTask);
 
         info("Task %d: -> Request\n", generatedTask.id);
-
-        printTable();
 
         pthread_sleep(1);
     }
