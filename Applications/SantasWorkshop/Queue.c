@@ -142,8 +142,10 @@ Task queueDequeue(Queue *self)
 int queueIsEmpty(Queue* self) 
 {
     int count = 0;
+    while( pthread_mutex_lock(&self->mutex) != 0);
     count = self->count;
-    return count;
+    pthread_mutex_unlock(&self->mutex);
+    return count == 0;
 }
 
 int queueCount(Queue* self)
