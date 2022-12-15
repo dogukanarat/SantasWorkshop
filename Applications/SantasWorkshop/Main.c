@@ -41,8 +41,7 @@ void printTableHeader()
 {
 #if TABLE_VIEW
     print(
-        "Time\t Req\t Paint\t Asm\t Pack\t Dvry\t PntQa\t AsmQa\t Done\n "
-    );
+        "Time\t Req\t Paint\t Asm\t Pack\t Dvry\t PntQa\t AsmQa\t Done\n ");
 #endif
 }
 
@@ -59,8 +58,7 @@ void printTable()
         queueCount(s_deliveryQueue),
         queueCount(s_paintingQaQueue),
         queueCount(s_assemblyQaQueue),
-        queueCount(s_readyTaskQueue)
-    );
+        queueCount(s_readyTaskQueue));
 #endif
 }
 
@@ -72,11 +70,11 @@ void waitForQa() { pthread_sleep(1); }
 
 void handlePaint()
 {
-    if(queueIsEmpty(s_paintingQueue) == FALSE)
+    if (queueIsEmpty(s_paintingQueue) == FALSE)
     {
         Task task = queueDequeue(s_paintingQueue);
-        
-        if(task.id != -1)
+
+        if (task.id != -1)
         {
             waitForPaint();
 
@@ -86,17 +84,17 @@ void handlePaint()
         }
     }
 
-    if(queueIsEmpty(s_paintingQaQueue) == FALSE)
+    if (queueIsEmpty(s_paintingQaQueue) == FALSE)
     {
         pthread_mutex_lock(&s_paintMutex);
 
         int count = queueCount(s_paintingQaQueue);
 
-        for(int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++)
         {
-            Task* task = queuePeek(s_paintingQaQueue, i);
+            Task *task = queuePeek(s_paintingQaQueue, i);
 
-            if(task != NULL && task->isPaintingDone == FALSE)
+            if (task != NULL && task->isPaintingDone == FALSE)
             {
                 waitForPaint();
 
@@ -110,30 +108,36 @@ void handlePaint()
     }
 }
 
-void handlePack()
+int handlePack()
 {
-    if(queueIsEmpty(s_packagingQueue) == FALSE)
+    int isWorked = FALSE;
+
+    if (queueIsEmpty(s_packagingQueue) == FALSE)
     {
         Task task = queueDequeue(s_packagingQueue);
-        
-        if(task.id != -1)
+
+        if (task.id != -1)
         {
             waitForPack();
+
+            isWorked = TRUE;
 
             queueEnqueue(s_deliveryQueue, task);
 
             info("Task %d: Packaging -> Delivery (Elf A)\n", task.id);
         }
     }
+
+    return isWorked;
 }
 
 void handleAssembly()
 {
-    if(queueIsEmpty(s_assemblyQueue) == FALSE)
+    if (queueIsEmpty(s_assemblyQueue) == FALSE)
     {
         Task task = queueDequeue(s_assemblyQueue);
-        
-        if(task.id != -1)
+
+        if (task.id != -1)
         {
             waitForAssembly();
 
@@ -143,23 +147,26 @@ void handleAssembly()
         }
     }
 
-    if(queueIsEmpty(s_assemblyQaQueue) == FALSE)
+    if (queueIsEmpty(s_assemblyQaQueue) == FALSE)
     {
         pthread_mutex_lock(&s_assemblyMutex);
 
         int count = queueCount(s_assemblyQaQueue);
 
-        for(int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++)
         {
-            Task* task = queuePeek(s_assemblyQaQueue, i);
+            Task *task = queuePeek(s_assemblyQaQueue, i);
 
-            if(task != NULL && task->isAssemblyDone == FALSE)
+            if (task != NULL)
             {
-                waitForAssembly();
+                if (task->isAssemblyDone == FALSE)
+                {
+                    waitForAssembly();
 
-                task->isAssemblyDone = TRUE;
+                    task->isAssemblyDone = TRUE;
 
-                info("Task %d: Assembly is done\n", task->id);
+                    info("Task %d: Assembly is done\n", task->id);
+                }
             }
         }
 
@@ -167,71 +174,82 @@ void handleAssembly()
     }
 }
 
-void handleDelivery()
+int handleDelivery()
 {
-    if(queueIsEmpty(s_deliveryQueue) == FALSE)
+    int isWorked = FALSE;
+
+    if (queueIsEmpty(s_deliveryQueue) == FALSE)
     {
         Task task = queueDequeue(s_deliveryQueue);
 
-        if(task.id != -1)
+        if (task.id != -1)
         {
             waitForDelivery();
+
+            isWorked = TRUE;
 
             queueEnqueue(s_readyTaskQueue, task);
 
             info("Task %d: Delivery -> \n", task.id);
         }
     }
+
+    return isWorked;
 }
 
 void handleQa()
 {
-    if(queueIsEmpty(s_paintingQaQueue) == FALSE)
+    if (queueIsEmpty(s_paintingQaQueue) == FALSE)
     {
         pthread_mutex_lock(&s_qaMutex);
 
         int count = queueCount(s_paintingQaQueue);
 
-        for(int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++)
         {
-            Task* task = queuePeek(s_paintingQaQueue, i);
+            Task *task = queuePeek(s_paintingQaQueue, i);
 
-            if(task == NULL && task->isQualityCheckDone == FALSE)
+            if (task != NULL)
             {
-                waitForQa();
+                if (task->isQualityCheckDone == FALSE)
+                {
+                    waitForQa();
 
-                task->isQualityCheckDone = TRUE;
+                    task->isQualityCheckDone = TRUE;
 
-                info("Task %d: Qa is done\n", task->id);
+                    info("Task %d: Qa is done\n", task->id);
+                }
             }
         }
 
         pthread_mutex_unlock(&s_qaMutex);
     }
 
-    if(queueIsEmpty(s_assemblyQaQueue) == FALSE)
+    if (queueIsEmpty(s_assemblyQaQueue) == FALSE)
     {
         pthread_mutex_lock(&s_qaMutex);
 
         int count = queueCount(s_assemblyQaQueue);
 
-        for(int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++)
         {
-            Task* task = queuePeek(s_assemblyQaQueue, i);
+            Task *task = queuePeek(s_assemblyQaQueue, i);
 
-            if(task == NULL && task->isQualityCheckDone == FALSE)
+            if (task != NULL)
             {
-                waitForQa();
+                if (task->isQualityCheckDone == FALSE)
+                {
+                    waitForQa();
 
-                task->isQualityCheckDone = TRUE;
+                    task->isQualityCheckDone = TRUE;
 
-                info("Task %d: Qa is done\n", task->id);
+                    info("Task %d: Qa is done\n", task->id);
+                }
             }
         }
 
         pthread_mutex_unlock(&s_qaMutex);
     }
-
 }
 
 void *threadElfA(void *arg)
@@ -240,8 +258,16 @@ void *threadElfA(void *arg)
 
     while (s_isRunning)
     {
+        int isWorkForPack = FALSE;
+
         // elf a can paint and pack
-        handlePack();
+
+        // pack is more important than paint
+        do
+        {
+            isWorkForPack = handlePack();
+        } while (isWorkForPack);
+
         handlePaint();
     }
 
@@ -254,8 +280,16 @@ void *threadElfB(void *arg)
 
     while (s_isRunning)
     {
+        int isWorkForPack = FALSE;
+
         // elf b can assemble and pack
-        handlePack();
+
+        // pack is more important than paint
+        do
+        {
+            isWorkForPack = handlePack();
+        } while (isWorkForPack);
+
         handleAssembly();
     }
 
@@ -268,7 +302,16 @@ void *threadSanta(void *arg)
 
     while (s_isRunning)
     {
-        handleDelivery();
+        int isWorkForDelivery = FALSE;
+
+        // santa can deliver and qa
+
+        // delivery is more important than qa
+        do
+        {
+            isWorkForDelivery = handleDelivery();
+        } while (isWorkForDelivery);
+        
         handleQa();
     }
 
@@ -281,18 +324,21 @@ void *threadQaManager(void *arg)
 
     while (s_isRunning)
     {
-        Task* task = NULL;
+        Task *task = NULL;
 
         pthread_mutex_lock(&s_qaMutex);
         pthread_mutex_lock(&s_paintMutex);
 
         task = queuePeek(s_paintingQaQueue, 0);
 
-        if(task != NULL && task->isQualityCheckDone == TRUE && task->isPaintingDone == TRUE)
+        if (task != NULL)
         {
-            Task finishedTask = queueDequeue(s_paintingQaQueue);
+            if (task->isQualityCheckDone == TRUE && task->isPaintingDone == TRUE)
+            {
+                Task finishedTask = queueDequeue(s_paintingQaQueue);
 
-            queueEnqueue(s_deliveryQueue, finishedTask);
+                queueEnqueue(s_deliveryQueue, finishedTask);
+            }
         }
 
         pthread_mutex_unlock(&s_paintMutex);
@@ -303,11 +349,14 @@ void *threadQaManager(void *arg)
 
         task = queuePeek(s_assemblyQaQueue, 0);
 
-        if(task != NULL && task->isQualityCheckDone == TRUE && task->isAssemblyDone == TRUE)
+        if (task != NULL)
         {
-            Task finishedTask = queueDequeue(s_assemblyQaQueue);
+            if (task->isQualityCheckDone == TRUE && task->isAssemblyDone == TRUE)
+            {
+                Task finishedTask = queueDequeue(s_assemblyQaQueue);
 
-            queueEnqueue(s_deliveryQueue, finishedTask);
+                queueEnqueue(s_deliveryQueue, finishedTask);
+            }
         }
 
         pthread_mutex_unlock(&s_assemblyMutex);
@@ -323,39 +372,39 @@ void *threadManager(void *arg)
 
     while (s_isRunning)
     {
-        if(queueIsEmpty(s_requestQueue) == FALSE)
+        if (queueIsEmpty(s_requestQueue) == FALSE)
         {
             Task task = queueDequeue(s_requestQueue);
 
-            if(task.type == TASK_TYPE_1)
+            if (task.type == TASK_TYPE_1)
             {
                 queueEnqueue(s_packagingQueue, task);
 
                 info("Task %d: Request -> Packaging\n", task.id);
             }
 
-            if(task.type == TASK_TYPE_2)
+            if (task.type == TASK_TYPE_2)
             {
                 queueEnqueue(s_paintingQueue, task);
-                
+
                 info("Task %d: Request -> Painting\n", task.id);
             }
 
-            if(task.type == TASK_TYPE_3)
+            if (task.type == TASK_TYPE_3)
             {
                 queueEnqueue(s_assemblyQueue, task);
 
                 info("Task %d: Request -> Assembly\n", task.id);
             }
 
-            if(task.type == TASK_TYPE_4)
+            if (task.type == TASK_TYPE_4)
             {
                 queueEnqueue(s_paintingQaQueue, task);
 
                 info("Task %d: Request -> PaintingQa\n", task.id);
             }
 
-            if(task.type == TASK_TYPE_5)
+            if (task.type == TASK_TYPE_5)
             {
                 queueEnqueue(s_assemblyQaQueue, task);
 
@@ -406,12 +455,18 @@ int main(int argc, char **argv)
 {
     // -t (int) => simulation time in seconds
     // -s (int) => change the random seed
-    for(int i = 1; i < argc; i++)
+    for (int i = 1; i < argc; i++)
     {
-        if(!strcmp(argv[i], "-t")) {s_simulationTime = atoi(argv[++i]);}
-        if(!strcmp(argv[i], "-s")) {s_seed = atoi(argv[++i]);}
+        if (!strcmp(argv[i], "-t"))
+        {
+            s_simulationTime = atoi(argv[++i]);
+        }
+        if (!strcmp(argv[i], "-s"))
+        {
+            s_seed = atoi(argv[++i]);
+        }
     }
-    
+
     srand(s_seed); // feed the seed
 
     pthread_t elfA;
@@ -442,7 +497,7 @@ int main(int argc, char **argv)
     pthread_create(&qaManager, NULL, threadQaManager, NULL);
     pthread_create(&customer, NULL, threadCustomer, NULL);
 
-    while(s_simulationTime-- > 0)
+    while (s_simulationTime-- > 0)
     {
         pthread_sleep(1);
         s_currentTime++;
