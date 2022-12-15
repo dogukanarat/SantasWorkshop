@@ -1,22 +1,27 @@
-#include "Common.h"
-#include "Queue.h"
-#include "Print.h"
-#include "TaskGenerator.h"
+#include "SantasWorkshopLib/Common.h"
+#include "SantasWorkshopLib/Queue.h"
+#include "SantasWorkshopLib/Print.h"
+#include "SantasWorkshopLib/TaskGenerator.h"
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define TABLE_VIEW 1
+#define QUEUE_SIZE 200
 
 // simulation time
-static int s_simulationTime = 120;
+static int s_simulationTime = 50;
 
 // seed for randomness
 static int s_seed = 10;
 
 // frequency of emergency gift requests from New Zealand
 static int s_emergencyFrequency = 30;
+
+static int s_currentTime = 0;
+
+static int s_isRunning = TRUE;
 
 // list of queues
 static Queue *s_requestQueue;
@@ -31,7 +36,7 @@ void printTableHeader()
 {
 #if TABLE_VIEW
     print(
-        "Request\t\t Painting\t Assembly\t Packaging\t Delivery\t PaintingQa\t AssemblyQa\n"
+        "Time\tRequest\t\t Painting\t Assembly\t Packaging\t Delivery\t PaintingQa\t AssemblyQa\n"
     );
 #endif
 }
@@ -40,7 +45,8 @@ void printTable()
 {
 #if TABLE_VIEW
     print(
-        "%d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\n",
+        "%d\t%d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\t\t %d\n",
+        s_currentTime,
         queueCount(s_requestQueue),
         queueCount(s_paintingQueue),
         queueCount(s_assemblyQueue),
@@ -52,45 +58,87 @@ void printTable()
 #endif
 }
 
-void workPaint() { pthread_sleep(3); }
-void workAssembly() { pthread_sleep(2); }
-void workPack() { pthread_sleep(1); }
-void workDelivery() { pthread_sleep(1); }
-void workQa() { pthread_sleep(1); }
+void waitForPaint() { pthread_sleep(3); }
+void waitForAssembly() { pthread_sleep(2); }
+void waitForPack() { pthread_sleep(1); }
+void waitForDelivery() { pthread_sleep(1); }
+void waitForQa() { pthread_sleep(1); }
+
+void handlePaint()
+{
+    if(queueIsEmpty(s_paintingQueue) == FALSE)
+    {
+        Task task = queueDequeue(s_paintingQueue);
+        
+        if(task.id != -1)
+        {
+            waitForPaint();
+
+            queueEnqueue(s_packagingQueue, task);
+
+            info("Task %d: Painting -> Packing (Elf A)\n", task.id);
+        }
+    }
+}
+
+void handlePack()
+{
+    if(queueIsEmpty(s_packagingQueue) == FALSE)
+    {
+        Task task = queueDequeue(s_packagingQueue);
+        
+        if(task.id != -1)
+        {
+            waitForPack();
+
+            queueEnqueue(s_deliveryQueue, task);
+
+            info("Task %d: Packaging -> Delivery (Elf A)\n", task.id);
+        }
+    }
+}
+
+void handleAssembly()
+{
+    if(queueIsEmpty(s_assemblyQueue) == FALSE)
+    {
+        Task task = queueDequeue(s_assemblyQueue);
+        
+        if(task.id != -1)
+        {
+            waitForAssembly();
+
+            queueEnqueue(s_packagingQueue, task);
+
+            info("Task %d: Assembly -> Packing (Elf B)\n", task.id);
+        }
+    }
+}
+
+void handleDelivery()
+{
+    if(queueIsEmpty(s_deliveryQueue) == FALSE)
+    {
+        Task task = queueDequeue(s_deliveryQueue);
+
+        if(task.id != -1)
+        {
+            waitForDelivery();
+
+            info("Task %d: Delivery -> \n", task.id);
+        }
+    }
+}
 
 void *threadElfA(void *arg)
 {
     info("Elf A has started\n");
 
-    while (TRUE)
+    while (s_isRunning)
     {
-        if(queueIsEmpty(s_packagingQueue) == FALSE)
-        {
-            Task task = queueDequeue(s_packagingQueue);
-            
-            if(task.id != -1)
-            {
-                workPack();
-
-                queueEnqueue(s_deliveryQueue, task);
-
-                info("Task %d: Packaging -> Delivery (Elf A)\n", task.id);
-            }
-        }
-
-        if(queueIsEmpty(s_paintingQueue) == FALSE)
-        {
-            Task task = queueDequeue(s_paintingQueue);
-            
-            if(task.id != -1)
-            {
-                workPaint();
-
-                queueEnqueue(s_packagingQueue, task);
-
-                info("Task %d: Painting -> Packing (Elf A)\n", task.id);
-            }
-        }
+        // elf a can paint and pack
+        handlePack();
+        handlePaint();
     }
 
     return NULL;
@@ -100,35 +148,11 @@ void *threadElfB(void *arg)
 {
     info("Elf B has started\n");
 
-    while (TRUE)
+    while (s_isRunning)
     {
-        if(queueIsEmpty(s_packagingQueue) == FALSE)
-        {
-            Task task = queueDequeue(s_packagingQueue);
-            
-            if(task.id != -1)
-            {
-                workPack();
-
-                queueEnqueue(s_deliveryQueue, task);
-
-                info("Task %d: Packaging -> Delivery (Elf B)\n", task.id);
-            }
-        }
-
-        if(queueIsEmpty(s_assemblyQueue) == FALSE)
-        {
-            Task task = queueDequeue(s_assemblyQueue);
-            
-            if(task.id != -1)
-            {
-                workAssembly();
-
-                queueEnqueue(s_packagingQueue, task);
-
-                info("Task %d: Assembly -> Packing (Elf B)\n", task.id);
-            }
-        }
+        // elf b can assemble and pack
+        handlePack();
+        handleAssembly();
     }
 
     return NULL;
@@ -138,9 +162,9 @@ void *threadSanta(void *arg)
 {
     info("Santa has started\n");
 
-    while (TRUE)
+    while (s_isRunning)
     {
-        // pthread_sleep(1);
+        handleDelivery();
     }
 
     return NULL;
@@ -150,7 +174,7 @@ void *threadManager(void *arg)
 {
     info("Manager has started\n");
 
-    while (TRUE)
+    while (s_isRunning)
     {
         if(queueIsEmpty(s_requestQueue) == FALSE)
         {
@@ -202,7 +226,7 @@ void *threadCustomer(void *arg)
 {
     info("Customer has started\n");
 
-    while (TRUE)
+    while (s_isRunning)
     {
         Task generatedTask = generateTask();
 
@@ -218,14 +242,14 @@ void *threadCustomer(void *arg)
 
 int initialize()
 {
-    // create queues
-    s_requestQueue = queueConstruct(100);
-    s_paintingQueue = queueConstruct(100);
-    s_assemblyQueue = queueConstruct(100);
-    s_packagingQueue = queueConstruct(100);
-    s_deliveryQueue = queueConstruct(100);
-    s_paintingQaQueue = queueConstruct(100);
-    s_assemblyQaQueue = queueConstruct(100);
+    // create queuesQUEUE_SIZE
+    s_requestQueue = queueConstruct(QUEUE_SIZE);
+    s_paintingQueue = queueConstruct(QUEUE_SIZE);
+    s_assemblyQueue = queueConstruct(QUEUE_SIZE);
+    s_packagingQueue = queueConstruct(QUEUE_SIZE);
+    s_deliveryQueue = queueConstruct(QUEUE_SIZE);
+    s_paintingQaQueue = queueConstruct(QUEUE_SIZE);
+    s_assemblyQaQueue = queueConstruct(QUEUE_SIZE);
 
     return TRUE;
 }
@@ -263,11 +287,21 @@ int main(int argc, char **argv)
     pthread_create(&manager, NULL, threadManager, NULL);
     pthread_create(&customer, NULL, threadCustomer, NULL);
 
+    while(s_simulationTime-- > 0)
+    {
+        pthread_sleep(1);
+        s_currentTime++;
+    }
+
+    s_isRunning = FALSE;
+
     pthread_join(elfA, NULL);
     pthread_join(elfB, NULL);
     pthread_join(santa, NULL);
     pthread_join(manager, NULL);
     pthread_join(customer, NULL);
+
+    print("Simulation is finished\n");
 
     return 0;
 }

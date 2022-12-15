@@ -38,8 +38,6 @@ Task generateTask()
     task.type = lutTaskIdProb[rand() % LUT_SIZE];
     task.id = taskId++;
 
-    task.type = task.type % TASK_TYPE_3;
-
     if(task.type == TASK_TYPE_1)
     {
         task.isPaintingDone = 1;
