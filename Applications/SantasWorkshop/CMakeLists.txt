@@ -6,14 +6,16 @@ add_executable(
     SantasWorkshop
 )
 
+target_link_libraries(
+    SantasWorkshop
+    PRIVATE
+        SantasWorkshopLib
+)
+
 target_sources(
     SantasWorkshop 
     PRIVATE
         Main.c
-        Queue.c
-        Print.c
-        TaskGenerator.c
-        Common.c
         ${CUSTOM_HEADER}
 )
 

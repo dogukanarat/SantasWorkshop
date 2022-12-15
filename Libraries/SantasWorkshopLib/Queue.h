@@ -1,6 +1,11 @@
 #ifndef INCLUDED_QUEUE_H
 #define INCLUDED_QUEUE_H
 
+/*
+    Queue.h
+    A thread safe queue implementation
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

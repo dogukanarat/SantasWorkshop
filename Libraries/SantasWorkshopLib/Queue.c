@@ -79,12 +79,13 @@ int queueEnqueue(Queue* self, Task task)
     }
     else 
     {
-        // add the item to the tail of the queue
+        // set the tail's next to the item
         self->tail->next = item;
         item->previous = self->tail;
         self->tail = item;
     }
 
+    // increment the count
     self->count++;
 
     // unlock mutex
@@ -121,17 +122,20 @@ Task queueDequeue(Queue *self)
     item = self->head;
     task = item->data;
 
-    // remove the item from the queue
-    self->head = item->previous;
-    self->count--;
-
-    // if the queue is empty, set the tail to NULL
-    if (self->count == 0) 
+    // if the queue is not empty, set the head to the next item
+    if (self->count > 1) 
     {
+        self->head = item->next;
+        self->head->previous = NULL;
+    }
+    else 
+    {
+        self->head = NULL;
         self->tail = NULL;
     }
 
-    free(item);
+    // decrement the count
+    self->count--;
 
     // unlock mutex
     pthread_mutex_unlock(&self->mutex);
