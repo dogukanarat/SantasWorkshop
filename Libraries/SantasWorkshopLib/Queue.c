@@ -157,7 +157,41 @@ int queueCount(Queue* self)
     return count;
 }
 
-Task* queueHead(Queue* self)
+Task* queuePeek(Queue* self, int index)
 {
-    return &self->head->data;
+    Node* item = NULL;
+    int i = 0;
+
+    // bad parameter
+    if (self == NULL) 
+    {
+        return NULL;
+    }
+
+    // lock mutex
+    while( pthread_mutex_lock(&self->mutex) != 0);
+
+    // the queue is empty
+    if (self->count == 0) 
+    {
+        pthread_mutex_unlock(&self->mutex);
+        return NULL;
+    }
+
+    // get the item from the head of the queue
+    item = self->head;
+
+    // if the queue is not empty, set the head to the next item
+    if (self->count > 1) 
+    {
+        for (i = 0; i < index; i++)
+        {
+            item = item->next;
+        }
+    }
+
+    // unlock mutex
+    pthread_mutex_unlock(&self->mutex);
+
+    return &item->data;
 }

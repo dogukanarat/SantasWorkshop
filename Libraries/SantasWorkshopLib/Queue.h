@@ -93,11 +93,12 @@ int queueIsEmpty(Queue* self);
 int queueCount(Queue* self);
 
 /*
-    return the head of the Queue
-    @param self the Queue to check
-    @return the head of the Queue
+    Get the Task at the given index
+    @param self the Queue to get the Task from
+    @param index the index of the Task to get
+    @return the Task at the given index
 */
-Task* queueHead(Queue* self);
+Task* queuePeek(Queue* self, int index);
 
 
 
