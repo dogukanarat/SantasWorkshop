@@ -8,10 +8,10 @@
 #include <stdlib.h>
 
 #define TABLE_VIEW 1
-#define QUEUE_SIZE 5
+#define QUEUE_SIZE 1
 
 // simulation time
-static int s_simulationTime = 50;
+static int s_simulationTime = 120;
 
 // seed for randomness
 static int s_seed = 10;
@@ -311,8 +311,17 @@ void *threadSanta(void *arg)
         {
             isWorkForDelivery = handleDelivery();
         } while (isWorkForDelivery);
-        
-        handleQa();
+
+        // delivery is done
+
+        int waitinQaCount = queueCount(s_paintingQaQueue) + queueCount(s_assemblyQaQueue);
+
+        // 3 or more task is waiting for qa
+        if(waitinQaCount >= 3)
+        {
+            handleQa();
+        }
+
     }
 
     return NULL;
